@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cal&Prot calc program.</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Calorie & Protein Calculator Program</h1>
+        <div class="detailed">
+            <ul>
+                <li>TDEE ~2,400 kcal.</li>
+                <li>Bulking phase ~2,600 - 2,700 kcal. + protein 130 g.</li>
+                <li>Cutting phase ~1,900 - 2,100 kcal. + protein 130 g.</li>
+            </ul>
+        </div>
+        <div class="add-data">
+            Calorie <input id="cal-input"  class="inputDetailed" type="text">
+            Protein <input id="prot-input" class="inputDetailed" type="text">
+            <button id="add-btn" class="theme-btn">Add</button>
+            <button id="option-bulking" class="theme-btn">Bulking</button>
+            <button id="option-cutting" class="theme-btn">Cutting</button>
+        </div>
+        <div class="totalCalProt">
+            <p id="total-cal" class="theme-text">Calorie: </p>
+            <p id="total-prot" class="theme-text">Protein: </p>
+        </div>
+        <div class="needMore">
+             <p id="need-more-cal" class="theme-text">Calorie: </p>
+             <p id="need-more-prot" class="theme-text">Protein: </p>
+        </div>
+    </div>
+    <button id="theme-toggle-btn" class="theme-btn">Dark</button>
+    <button id="history-detailed" class="theme-btn">History</button>
+    <button id="reset-btn" class="theme-btn reset-btn-position" style="background-color: #c9302c; color: white; border-color: #c9302c;">Reset Data</button>
+
+    <script src="script.js"></script>
+</body>
+</html>
