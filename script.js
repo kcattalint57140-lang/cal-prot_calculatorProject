@@ -31,6 +31,17 @@ document.addEventListener("DOMContentLoaded", () => {
             currentPhase: currentPhase,
         };
         localStorage.setItem('calorieTrackerData', JSON.stringify(data));
+            // ดึงข้อมูล String ออกมา
+            // const dataString = localStorage.getItem('calorieTrackerData');
+
+            // แปลง String JSON กลับให้เป็น Object
+            // const dataObject = JSON.parse(dataString);
+
+            // แสดงผล Object ใน Console (จะแสดงโครงสร้างข้อมูลที่อ่านง่าย)
+            // console.log(dataObject); 
+
+            // (ทางเลือกที่สั้นที่สุด)
+            console.log(JSON.parse(localStorage.getItem('calorieTrackerData')));
     }
 
     function loadData() {
