@@ -21,7 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Main function: save, load, display (ฟังก์ชันหลัก: บันทึก, โหลด, แสดงผล)
     // ==========================================================
-
     function saveData() {
         const data = {
             currentCal: currentCal,
@@ -42,6 +41,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // (ทางเลือกที่สั้นที่สุด)
             console.log(JSON.parse(localStorage.getItem('calorieTrackerData')));
+    }
+
+    function calculateExpression(expressionString) {
+        //1. ลบช่องว่างทั้งหมด
+        const cleanedString = expressionString.replace(/\s/g, '');
+
+        //2. ตรวจสอบว่าสตริงที่เหลือเป็นนิพจน์ทางคณิตศาสตร์ที่ปลอดภัยหรือไม่
+        // อนุญาตเฉพาะตัวเลข, จุดทศนิยม, และเครื่องหมาย +, -, *, / เท่านั้น
+        const safeMathRegex = /^[0-9+\-*/.]+$/;
+        
+        if (safeMathRegex.test(cleanedString)) {
+            try {
+                //3. ใช้ Function Constructor แทน eval() เพื่อความปลอดภัยที่เพิ่มขึ้น
+                // มันจะประมวลผลสตริงเป็นโค้ด แต่แยกออกจากการรันโค้ดหลัก
+                // การใส่วงเล็บ () เป็นการบังคับให้สตริงนั้นถูกประเมินค่าเป็นนิพจน์
+                return Function(`return (${cleanedString})`)();
+            } catch (e) {
+                // ถ้าคำนวนไม่ได้ (เช่น นิพจน์ไม่สมบูรณ์)ให้คือค่า NaN
+                return NaN;
+            }
+        }
+        // หากไม่ผ่านการตรวจสอบความปลอดภัยหรือเป็นสตริงว่าง
+        return NaN;
     }
 
     function loadData() {
@@ -95,11 +117,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const remainingCal = targetCal - currentCal;
         const remainingProt = targetProt - currentProt;
 
-        needMoreCal.textContent = `Calorie: ${remainingCal < 0 ? 0 : remainingCal} kcal.`;
-        needMoreProt.textContent = `Protein: ${remainingProt < 0 ? 0 : remainingProt} g.`;
-        
-        updatePhaseButtons();
+        let needCalText = '';
+        let needProtText = '';
 
+        if (remainingCal < 0) {
+            const overageCal = Math.abs(remainingCal);
+            needCalText = `Calorie: 0 kcal. <span class="over-cal"> +${overageCal} kcal.</span>`;
+        }else {
+            needCalText = `Calorie: ${remainingCal} kcal.`;
+        }
+        
+        if (remainingProt < 0) {
+            const overageProt = Math.abs(remainingProt);
+            needProtText = `Protein: 0 g. <span class="over-prot"> +${overageProt} g.</span>`;
+        }else {
+            needProtText = `Protein: ${remainingProt}`;
+        }
+        needMoreCal.innerHTML = needCalText;
+        needMoreProt.innerHTML = needProtText;
+
+        updatePhaseButtons();
         saveData(); 
     }
 
@@ -148,8 +185,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Add button (ปุ่ม Add (เพิ่มข้อมูล))
     addBtn.addEventListener('click', () => {
-        const calValue = parseInt(calInput.value);
-        const protValue = parseInt(protInput.value);
+        const calValue = calculateExpression(calInput.value);
+        const protValue = calculateExpression(protInput.value);
 
         // Input validation and update logic (ตรวจสอบความถูกต้องของ Input และ Logic การอัปเดต)
         if (!isNaN(calValue) && !isNaN(protValue) && calValue >= 0 && protValue >= 0) {

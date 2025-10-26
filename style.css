@@ -196,8 +196,14 @@ body.dark-mode #history-detailed {
     border-left: none !important;
     border-right: none !important;
 }
-
-
+.needMore .over-cal {
+    color: red;
+    font-weight: bold;
+}
+.needMore .over-prot {
+    color: green;
+    font-weight: bold;
+}
 /* ------------------------------------------- */
 /* 4. Responsive Adjustments for Mobile (Max Width 620px) */
 /* ------------------------------------------- */
