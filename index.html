@@ -2,55 +2,240 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cal&Prot calc program.</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff">
+    <title>Calorie & Protein Ultimate</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="main-wrapper"> 
-        <div class="container">
-            <h1>Calorie & Protein Calculator Program</h1>
+    <input type="file" id="import-file" style="display: none;" accept=".json">
+
+    <div id="toast-container"></div>
+
+    <div id="menu-modal" class="modal">
+        <div class="modal-content">
+            <h3>Add New Preset Menu</h3>
+            <div class="input-group">
+                <label>Name</label>
+                <input id="modal-name" type="text" placeholder="e.g. Pad Thai">
+            </div>
+            <div class="input-group">
+                <label>Calories</label>
+                <input id="modal-cal" type="number" placeholder="kcal">
+            </div>
+            <div class="input-group">
+                <label>Protein</label>
+                <input id="modal-prot" type="number" placeholder="grams">
+            </div>
+            <div class="modal-actions">
+                <button id="modal-btn-cancel" style="background-color: #95a5a6; color: white;">Cancel</button>
+                <button id="modal-btn-confirm" style="background-color: #3498db; color: white;">Save Only</button>
+                <button id="modal-btn-save-eat" style="background-color: #27ae60; color: white;">Save & Add (+)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-history-modal" class="modal">
+        <div class="modal-content">
+            <h3>Edit History Entry</h3>
+            <p id="edit-history-date-display" style="margin-bottom: 15px; color: #666; font-size: 0.9em; text-align: center;">Date: ...</p>
             
-            <div class="detailed">
-                <p>TDEE ~2,400 kcal.</p>
-                <p>Bulking phase ~2,600 - 2,700 kcal. + protein 130 g.</p>
-                <p>Cutting phase ~1,900 - 2,100 kcal. + protein 130 g.</p>
+            <div class="input-group">
+                <label>Total Cal</label>
+                <input id="edit-history-cal" type="number">
+            </div>
+            <div class="input-group">
+                <label>Total Prot</label>
+                <input id="edit-history-prot" type="number">
+            </div>
+            
+            <div class="modal-actions">
+                <button id="btn-cancel-edit-history" style="background-color: #95a5a6; color: white;">Cancel</button>
+                <button id="btn-save-edit-history" style="background-color: #f39c12; color: white;">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tdee-modal" class="modal">
+        <div class="modal-content">
+            <h3>Calculate TDEE</h3>
+            <div class="input-group">
+                <label>Gender</label>
+                <select id="tdee-gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Weight (kg)</label>
+                <input id="tdee-weight" type="number" placeholder="kg">
+            </div>
+            <div class="input-group">
+                <label>Height (cm)</label>
+                <input id="tdee-height" type="number" placeholder="cm">
+            </div>
+            <div class="input-group">
+                <label>Age</label>
+                <input id="tdee-age" type="number" placeholder="years">
+            </div>
+            <div class="input-group">
+                <label>Activity</label>
+                <select id="tdee-activity">
+                    <option value="1.2">Sedentary (Little to no exercise)</option>
+                    <option value="1.375">Lightly Active (1-3 days/week)</option>
+                    <option value="1.55">Moderately Active (3-5 days/week)</option>
+                    <option value="1.725">Very Active (6-7 days/week)</option>
+                    <option value="1.9">Extra Active (Physical job/training)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-tdee" style="background-color: #95a5a6; color: white;">Cancel</button>
+                <button id="btn-confirm-tdee" style="background-color: #8e44ad; color: white;">Calculate & Set</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-wrapper"> 
+        
+        <div id="main-page" class="container">
+            <h1>Calorie & Protein Tracker</h1>
+            
+            <div class="detailed" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px;">
+                <div style="flex-grow: 1;">
+                    <p id="target-display-cal">Target Cal: 2400</p>
+                    <p id="target-display-prot">Target Prot: 130g</p>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-calc-tdee" style="font-size: 0.8em; background-color: #8e44ad; color: white; border: none;">Calc TDEE</button>
+                    <button id="btn-custom-target" style="font-size: 0.8em;">Edit Targets</button>
+                </div>
             </div>
 
-            <div class="add-data">
+            <div class="progress-section">
+                <div class="progress-label">
+                    <span>Calories</span>
+                    <span id="prog-text-cal">0 / 2400</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="prog-bar-cal" class="progress-bar-fill cal-fill" style="width: 0%;"></div>
+                </div>
+                
+                <div class="progress-label" style="margin-top: 10px;">
+                    <span>Protein</span>
+                    <span id="prog-text-prot">0 / 130</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="prog-bar-prot" class="progress-bar-fill prot-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+            <div style="margin-top: 10px;">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>Quick Add</label>
+                    <div style="display: flex; gap: 5px; width: 100%;">
+                        <select id="preset-select" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+                            <option value="">-- Select Food --</option>
+                        </select>
+                        <button id="btn-open-modal" title="Add new menu" style="width: auto; padding: 0 10px; font-size: 0.8em;">+ Add Menu</button>
+                        <button id="btn-delete-preset" title="Delete selected preset" style="width: 40px; color:red;">X</button>
+                    </div>
+                </div>
+
                 <div class="input-group">
                     <label for="cal-input">Calorie</label>
-                    <input id="cal-input" class="inputDetailed" type="text">
+                    <input id="cal-input" type="text" placeholder="kcal (e.g. 100+50)">
                 </div>
                 <div class="input-group">
                     <label for="prot-input">Protein</label>
-                    <input id="prot-input" class="inputDetailed" type="text">
+                    <input id="prot-input" type="text" placeholder="grams">
                 </div>
                 
-                <button id="add-btn" class="theme-btn">Add</button>
-                <button id="option-bulking" class="theme-btn">Bulking</button>
-                <button id="option-cutting" class="theme-btn">Cutting</button>
-            </div>
-            
-            <p class="title_">
-                Total Cal & Prot.
-            </p>
-            <div class="totalCalProt">
-                <p id="total-cal" class="theme-text">Calorie: </p>
-                <p id="total-prot" class="theme-text">Protein: </p>
-            </div>
-            <p class="title_">Need More Calories & Protein.</p>
-            <div class="needMore">
-                 <p id="need-more-cal" class="theme-text">Calorie: </p>
-                 <p id="need-more-prot" class="theme-text">Protein: </p>
+                <div class="container-btn">
+                     <button id="add-btn" class="theme-btn" style="flex:1; background-color: #3498db; color: white;">Add Entry</button>
+                </div>
+
+                <details style="margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                    <summary style="cursor: pointer; color: #777; font-size: 0.9em; outline: none; list-style: none;">
+                        🔽 Record Body Weight (Optional)
+                    </summary>
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label>Weight (kg)</label>
+                        <div style="display: flex; gap: 5px; width: 100%;">
+                            <input id="weight-input" type="number" placeholder="Current Weight">
+                            <button id="btn-log-weight" class="theme-btn">Log</button>
+                        </div>
+                    </div>
+                    <p id="today-weight-display" style="font-size: 0.8em; color: #666; text-align: right; margin-top: 5px;"></p>
+                </details>
+
+                <div class="container-btn" style="margin-top: 20px;">
+                     <button id="option-bulking" class="theme-btn">Bulking (2600)</button>
+                     <button id="option-cutting" class="theme-btn">Cutting (1900)</button>
+                </div>
             </div>
         </div>
         
-        <div class="action-buttons-bar">
-            <button id="theme-toggle-btn" class="theme-btn">Dark</button>
-            <button id="history-detailed" class="theme-btn">History</button>
-            <button id="reset-btn" class="theme-btn" style="background-color: #c9302c; color: white; border-color: #c9302c;">Reset Data</button>
+        <div id="history-page" class="container" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">History Log</h2>
+                <button id="back-btn" class="theme-btn">Back</button>
+            </div>
+            
+            <p class="title_">Today's Logs</p>
+            <div id="today-logs-container" style="margin-bottom: 20px;"></div>
+
+            <p class="title_">Past History (Daily Totals)</p>
+            <div id="past-history-container"></div>
+            
+            <button id="btn-load-more" style="width: 100%; margin-top: 10px; display: none;">Load More History (+7 Days)</button>
         </div>
-    </div> <script src="script.js"></script>
+
+        <div id="summary-page" class="container" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h2 style="margin: 0;">Summary</h2>
+                <button id="back-from-summary" class="theme-btn">Back</button>
+            </div>
+
+            <div class="week-nav">
+                <button id="prev-week-btn" class="nav-arrow">&lt;</button>
+                <span id="week-range-text">Loading...</span>
+                <button id="next-week-btn" class="nav-arrow" disabled>&gt;</button>
+            </div>
+
+            <div class="fat-loss-card" style="margin-bottom: 20px;">
+                <p style="margin:0; font-size:0.9em;">Est. Fat Loss (Based on Deficit)</p>
+                <h1 id="fat-loss-val" style="margin: 5px 0;">0.00 kg</h1>
+            </div>
+
+            <h3 style="font-size: 1em; margin-bottom: 10px;">Calorie Intake</h3>
+            <div class="chart-controls">
+                <button class="chart-btn active" data-type="bar">Bar</button>
+                <button class="chart-btn" data-type="line">Line</button>
+            </div>
+            <div class="chart-container" style="height: 200px;">
+                <canvas id="weeklyChart"></canvas>
+            </div>
+
+            <h3 style="font-size: 1em; margin: 20px 0 10px 0;">Body Weight Trend</h3>
+            <div class="chart-container" style="height: 200px;">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </div>
+
+        <div class="action-buttons-bar">
+            <button id="theme-toggle-btn">Dark</button>
+            <button id="history-detailed">History</button>
+            <button id="summary-btn">Summary</button>
+            <button id="btn-export" style="background-color: #34495e; color: white;">Export</button>
+            <button id="btn-import" style="background-color: #34495e; color: white;">Import</button>
+            <button id="reset-btn" style="background-color: #c9302c; color: white;">Reset</button>
+        </div>
+    </div> 
+    <script src="script.js"></script>
 </body>
 </html>

@@ -1,238 +1,673 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // ================= DOM ELEMENTS =================
     const calInput = document.getElementById('cal-input');
     const protInput = document.getElementById('prot-input');
     const addBtn = document.getElementById('add-btn');
     const optionBulking = document.getElementById('option-bulking');
     const optionCutting = document.getElementById('option-cutting');
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    const historyDetailedBtn = document.getElementById('history-detailed');
-    const resetBtn = document.getElementById('reset-btn'); 
+    
+    const progBarCal = document.getElementById('prog-bar-cal');
+    const progBarProt = document.getElementById('prog-bar-prot');
+    const progTextCal = document.getElementById('prog-text-cal');
+    const progTextProt = document.getElementById('prog-text-prot');
+    const targetDisplayCal = document.getElementById('target-display-cal');
+    const targetDisplayProt = document.getElementById('target-display-prot');
+    const btnCustomTarget = document.getElementById('btn-custom-target');
+    const btnCalcTDEE = document.getElementById('btn-calc-tdee');
 
-    const totalCal = document.getElementById('total-cal');
-    const totalProt = document.getElementById('total-prot');
-    const needMoreCal = document.getElementById('need-more-cal');
-    const needMoreProt = document.getElementById('need-more-prot');
+    // Add Menu Modal
+    const presetSelect = document.getElementById('preset-select');
+    const btnOpenModal = document.getElementById('btn-open-modal'); 
+    const btnDeletePreset = document.getElementById('btn-delete-preset');
+    const menuModal = document.getElementById('menu-modal');
+    const modalName = document.getElementById('modal-name');
+    const modalCal = document.getElementById('modal-cal');
+    const modalProt = document.getElementById('modal-prot');
+    const modalBtnCancel = document.getElementById('modal-btn-cancel');
+    const modalBtnConfirm = document.getElementById('modal-btn-confirm');
+    const modalBtnSaveEat = document.getElementById('modal-btn-save-eat');
 
-    let currentCal = 0;
-    let currentProt = 0;
-    let targetCal = 2100;
+    // Edit History Modal
+    const editHistoryModal = document.getElementById('edit-history-modal');
+    const editHistoryDateDisplay = document.getElementById('edit-history-date-display');
+    const editHistoryCal = document.getElementById('edit-history-cal');
+    const editHistoryProt = document.getElementById('edit-history-prot');
+    const btnCancelEditHistory = document.getElementById('btn-cancel-edit-history');
+    const btnSaveEditHistory = document.getElementById('btn-save-edit-history');
+
+    // TDEE Modal (New)
+    const tdeeModal = document.getElementById('tdee-modal');
+    const tdeeGender = document.getElementById('tdee-gender');
+    const tdeeWeight = document.getElementById('tdee-weight');
+    const tdeeHeight = document.getElementById('tdee-height');
+    const tdeeAge = document.getElementById('tdee-age');
+    const tdeeActivity = document.getElementById('tdee-activity');
+    const btnCancelTDEE = document.getElementById('btn-cancel-tdee');
+    const btnConfirmTDEE = document.getElementById('btn-confirm-tdee');
+
+    const toastContainer = document.getElementById('toast-container');
+    const weightInput = document.getElementById('weight-input');
+    const btnLogWeight = document.getElementById('btn-log-weight');
+    const todayWeightDisplay = document.getElementById('today-weight-display');
+
+    const mainPage = document.getElementById('main-page');
+    const historyPage = document.getElementById('history-page');
+    const summaryPage = document.getElementById('summary-page');
+    const todayLogsContainer = document.getElementById('today-logs-container');
+    const pastHistoryContainer = document.getElementById('past-history-container');
+    const btnLoadMore = document.getElementById('btn-load-more'); 
+    
+    const btnHistory = document.getElementById('history-detailed');
+    const btnSummary = document.getElementById('summary-btn');
+    const btnReset = document.getElementById('reset-btn');
+    const btnTheme = document.getElementById('theme-toggle-btn');
+    const btnExport = document.getElementById('btn-export');
+    const btnImport = document.getElementById('btn-import');
+    const importFile = document.getElementById('import-file');
+    const backBtn = document.getElementById('back-btn');
+    const backSumBtn = document.getElementById('back-from-summary');
+
+    const prevWeekBtn = document.getElementById('prev-week-btn');
+    const nextWeekBtn = document.getElementById('next-week-btn');
+    const weekRangeText = document.getElementById('week-range-text');
+    const chartBtns = document.querySelectorAll('.chart-btn');
+
+    // State Variables
+    let todayLogs = []; 
+    let weightLogs = []; 
+    let presets = [];    
+    let targetCal = 2400;
     let targetProt = 130;
-    let currentPhase = 'default'; 
+    let currentPhase = 'maintenance'; 
+    let currentWeekOffset = 0;
+    let historyVisibleCount = 7; 
+    let calorieChart = null;
+    let weightChart = null;
+    const TDEE_BASE = 2400; 
+    let editingHistoryDate = null; 
 
-    // Main function: save, load, display (ฟังก์ชันหลัก: บันทึก, โหลด, แสดงผล)
-    // ==========================================================
-    function saveData() {
-        const data = {
-            currentCal: currentCal,
-            currentProt: currentProt,
-            targetCal: targetCal,
-            targetProt: targetProt,
-            currentPhase: currentPhase,
-        };
-        localStorage.setItem('calorieTrackerData', JSON.stringify(data));
-            // ดึงข้อมูล String ออกมา
-            // const dataString = localStorage.getItem('calorieTrackerData');
+    // ================= HELPER FUNCTIONS =================
+    function getTodayStr() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const day = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+    }
 
-            // แปลง String JSON กลับให้เป็น Object
-            // const dataObject = JSON.parse(dataString);
-
-            // แสดงผล Object ใน Console (จะแสดงโครงสร้างข้อมูลที่อ่านง่าย)
-            // console.log(dataObject); 
-
-            // (ทางเลือกที่สั้นที่สุด)
-            console.log(JSON.parse(localStorage.getItem('calorieTrackerData')));
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        if (isNaN(date)) return dateStr;
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     function calculateExpression(expressionString) {
-        //1. ลบช่องว่างทั้งหมด
-        const cleanedString = expressionString.replace(/\s/g, '');
-
-        //2. ตรวจสอบว่าสตริงที่เหลือเป็นนิพจน์ทางคณิตศาสตร์ที่ปลอดภัยหรือไม่
-        // อนุญาตเฉพาะตัวเลข, จุดทศนิยม, และเครื่องหมาย +, -, *, / เท่านั้น
-        const safeMathRegex = /^[0-9+\-*/.]+$/;
-        
-        if (safeMathRegex.test(cleanedString)) {
-            try {
-                //3. ใช้ Function Constructor แทน eval() เพื่อความปลอดภัยที่เพิ่มขึ้น
-                // มันจะประมวลผลสตริงเป็นโค้ด แต่แยกออกจากการรันโค้ดหลัก
-                // การใส่วงเล็บ () เป็นการบังคับให้สตริงนั้นถูกประเมินค่าเป็นนิพจน์
-                return Function(`return (${cleanedString})`)();
-            } catch (e) {
-                // ถ้าคำนวนไม่ได้ (เช่น นิพจน์ไม่สมบูรณ์)ให้คือค่า NaN
-                return NaN;
-            }
+        if (!expressionString) return NaN;
+        const cleanedString = expressionString.toString().replace(/[^0-9+\-*/.]/g, '');
+        try {
+            return Function(`'use strict'; return (${cleanedString})`)();
+        } catch (e) {
+            return NaN;
         }
-        // หากไม่ผ่านการตรวจสอบความปลอดภัยหรือเป็นสตริงว่าง
-        return NaN;
+    }
+
+    function calculateTotals() {
+        let c=0, p=0;
+        todayLogs.forEach(l => { c += l.cal; p += l.prot; });
+        return { cal: c, prot: p };
+    }
+
+    function saveData() {
+        const data = {
+            date: getTodayStr(),
+            logs: todayLogs,
+            weightLogs: weightLogs,
+            presets: presets,
+            targetCal, targetProt, currentPhase
+        };
+        localStorage.setItem('calTrackerUltimate', JSON.stringify(data));
     }
 
     function loadData() {
-        const storedData = localStorage.getItem('calorieTrackerData');
-        if (storedData) {
-            const data = JSON.parse(storedData);
-            currentCal = data.currentCal || 0;
-            currentProt = data.currentProt || 0;
-            targetCal = data.targetCal || 2100;
+        const raw = localStorage.getItem('calTrackerUltimate');
+        const today = getTodayStr();
+        if(raw) {
+            const data = JSON.parse(raw);
+            if(data.date && data.date !== today) {
+                archiveData(data);
+                todayLogs = [];
+            } else {
+                todayLogs = data.logs || [];
+            }
+            weightLogs = data.weightLogs || [];
+            presets = data.presets || [];
+            targetCal = data.targetCal || 2400;
             targetProt = data.targetProt || 130;
-            currentPhase = data.currentPhase || 'default';
+            currentPhase = data.currentPhase || 'maintenance';
         }
+        updateUI();
+        updatePresetDropdown();
+        updateWeightDisplay();
     }
-    
-    function updatePhaseButtons() {
-        const isDarkMode = document.body.classList.contains('dark-mode');
+
+    function archiveData(oldData) {
+        let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+        let c=0, p=0;
+        (oldData.logs||[]).forEach(l => { c+=l.cal; p+=l.prot; });
         
-        // Set Highlight Colors (กำหนดสีเน้น)
-        const bulkingActiveBg = '#27ae60'; // Green color for Bulking (สีเขียวสำหรับ Bulking)
-        const cuttingActiveBg = '#e74c3c'; // Red color for Cutting (สีแดงสำหรับ Cutting)
-
-        // Set normal colors (กำหนดสีปกติ)
-        const defaultBg = isDarkMode ? '#383838' : ''; 
-        const defaultBorderColor = isDarkMode ? '#f0f0f0' : '#ccc'; 
-        const defaultTextColor = isDarkMode ? '#f0f0f0' : 'black'; 
-
-        // Reset all buttons (รีเซ็ตปุ่มทั้งหมด)
-        optionBulking.style.borderColor = defaultBorderColor;
-        optionCutting.style.borderColor = defaultBorderColor;
-        optionBulking.style.backgroundColor = defaultBg;
-        optionCutting.style.backgroundColor = defaultBg;
-        optionBulking.style.color = defaultTextColor;
-        optionCutting.style.color = defaultTextColor;
-
-        // Highlight the selected phase (เน้น Phase ที่กำลังเลือกอยู่)
-        if (currentPhase === 'bulking') {
-            optionBulking.style.backgroundColor = bulkingActiveBg;
-            optionBulking.style.color = 'white'; 
-            optionBulking.style.borderColor = bulkingActiveBg;
-        } else if (currentPhase === 'cutting') {
-            optionCutting.style.backgroundColor = cuttingActiveBg;
-            optionCutting.style.color = 'white'; 
-            optionCutting.style.borderColor = cuttingActiveBg;
+        if(c>0 || p>0) {
+            if(!history.find(h => h.date === oldData.date)) {
+                history.unshift({
+                    date: oldData.date,
+                    totalCal: c, totalProt: p,
+                    phase: oldData.currentPhase
+                });
+                if(history.length > 90) history = history.slice(0,90);
+                localStorage.setItem('calTrackerHistory', JSON.stringify(history));
+            }
         }
     }
 
-    function updateDisplay() {
-        totalCal.textContent = `Calorie: ${currentCal} kcal.`;
-        totalProt.textContent = `Protein: ${currentProt} g.`;
-
-        const remainingCal = targetCal - currentCal;
-        const remainingProt = targetProt - currentProt;
-
-        let needCalText = '';
-        let needProtText = '';
-
-        if (remainingCal < 0) {
-            const overageCal = Math.abs(remainingCal);
-            needCalText = `Calorie: 0 kcal. <span class="over-cal"> +${overageCal} kcal.</span>`;
-        }else {
-            needCalText = `Calorie: ${remainingCal} kcal.`;
-        }
-        
-        if (remainingProt < 0) {
-            const overageProt = Math.abs(remainingProt);
-            needProtText = `Protein: 0 g. <span class="over-prot"> +${overageProt} g.</span>`;
-        }else {
-            needProtText = `Protein: ${remainingProt}`;
-        }
-        needMoreCal.innerHTML = needCalText;
-        needMoreProt.innerHTML = needProtText;
-
-        updatePhaseButtons();
-        saveData(); 
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
-    // Function to reset all data (ฟังก์ชันสำหรับรีเซ็ตข้อมูลทั้งหมด)
-    // ==========================================================
-    function resetAllData() {
-        currentCal = 0;
-        currentProt = 0;
-        targetCal = 2100;
-        targetProt = 130;
-        currentPhase = 'default';
+    // ================= UI UPDATES =================
+    function updateUI() {
+        const totals = calculateTotals();
+        const calPct = Math.min((totals.cal / targetCal) * 100, 100);
+        const protPct = Math.min((totals.prot / targetProt) * 100, 100);
         
-        localStorage.removeItem('calorieTrackerData');
+        progBarCal.style.width = `${calPct}%`;
+        progBarProt.style.width = `${protPct}%`;
         
-        updateDisplay(); 
+        progTextCal.textContent = `${totals.cal} / ${targetCal}`;
+        progTextProt.textContent = `${totals.prot} / ${targetProt}`;
         
-        alert("Data has been reset. Starting a new day!");
+        targetDisplayCal.textContent = `Target Cal: ${targetCal}`;
+        targetDisplayProt.textContent = `Target Prot: ${targetProt}g`;
+
+        optionBulking.style.borderColor = currentPhase === 'bulking' ? '#27ae60' : '';
+        optionCutting.style.borderColor = currentPhase === 'cutting' ? '#e74c3c' : '';
+
+        saveData();
     }
 
+    function updateWeightDisplay() {
+        const todayEntry = weightLogs.find(w => w.date === getTodayStr());
+        todayWeightDisplay.textContent = todayEntry ? `Today's Logged Weight: ${todayEntry.weight} kg` : "";
+    }
 
-    // Load data on startup (โหลดข้อมูลเมื่อเริ่มต้น)
-    // ==========================================================
-    loadData(); 
-    applyTheme(getStoredTheme()); 
-    updateDisplay(); 
-
-    // ==========================================================
-    // Event Listeners for various actions (Event Listeners สำหรับการทำงานต่างๆ)
-    // ==========================================================
-    
-    // Bulking button (ปุ่ม Bulking)
-    optionBulking.addEventListener('click', () => {
-        targetCal = 2600;
-        targetProt = 130;
-        currentPhase = 'bulking';
-        updateDisplay();
-    });
-    
-    // Cutting button (ปุ่ม Cutting)
-    optionCutting.addEventListener('click', () => {
-        targetCal = 1900;
-        targetProt = 130;
-        currentPhase = 'cutting';
-        updateDisplay();
+    // ================= EVENT HANDLERS & LOGIC =================
+    btnCustomTarget.addEventListener('click', () => {
+        const newCal = prompt("Enter Custom Calorie Target:", targetCal);
+        const newProt = prompt("Enter Custom Protein Target:", targetProt);
+        if(newCal && newProt) {
+            targetCal = parseInt(newCal);
+            targetProt = parseInt(newProt);
+            currentPhase = 'custom';
+            updateUI();
+            showToast("Custom targets updated!");
+        }
     });
 
-    // Add button (ปุ่ม Add (เพิ่มข้อมูล))
+    // --- NEW: TDEE MODAL LOGIC ---
+    btnCalcTDEE.addEventListener('click', () => {
+        tdeeModal.style.display = 'flex';
+    });
+
+    btnCancelTDEE.addEventListener('click', () => {
+        tdeeModal.style.display = 'none';
+    });
+
+    btnConfirmTDEE.addEventListener('click', () => {
+        const weight = parseFloat(tdeeWeight.value);
+        const height = parseFloat(tdeeHeight.value);
+        const age = parseFloat(tdeeAge.value);
+        const gender = tdeeGender.value;
+        const activity = parseFloat(tdeeActivity.value);
+
+        if(!weight || !height || !age) {
+            showToast("Please fill all fields.", "error");
+            return;
+        }
+
+        // Mifflin-St Jeor Equation
+        let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+        bmr += (gender === 'male') ? 5 : -161;
+
+        const tdee = Math.round(bmr * activity);
+
+        targetCal = tdee;
+        targetProt = Math.round(weight * 2); // Auto protein: ~2g per kg
+        currentPhase = 'maintenance';
+        
+        updateUI();
+        showToast(`Target set! TDEE: ${tdee} kcal`);
+        tdeeModal.style.display = 'none';
+    });
+
+    // --- MODAL & PRESETS ---
+    function updatePresetDropdown() {
+        presetSelect.innerHTML = '<option value="">-- Select Food --</option>';
+        presets.forEach((p, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.textContent = `${p.name} (${p.cal}kcal, ${p.prot}g)`;
+            presetSelect.appendChild(opt);
+        });
+    }
+
+    btnOpenModal.addEventListener('click', () => {
+        menuModal.style.display = 'flex';
+        if(calInput.value) modalCal.value = calInput.value;
+        if(protInput.value) modalProt.value = protInput.value;
+        modalName.focus();
+    });
+
+    modalBtnCancel.addEventListener('click', () => {
+        menuModal.style.display = 'none';
+        modalName.value = ''; modalCal.value = ''; modalProt.value = '';
+    });
+
+    modalBtnConfirm.addEventListener('click', () => savePreset(false));
+    modalBtnSaveEat.addEventListener('click', () => savePreset(true));
+
+    function savePreset(addImmediately) {
+        const name = modalName.value;
+        const c = calculateExpression(modalCal.value);
+        const p = calculateExpression(modalProt.value);
+
+        if(!name || isNaN(c) || isNaN(p)) {
+            showToast("Please fill in all fields correctly.", "error");
+            return;
+        }
+
+        presets.push({ name, cal: c, prot: p });
+        updatePresetDropdown();
+        
+        if (addImmediately) {
+            todayLogs.push({ id: Date.now(), cal: c, prot: p });
+            updateUI();
+            showToast(`Added ${name} to daily log!`);
+        } else {
+            showToast(`Menu ${name} saved!`);
+        }
+        
+        saveData();
+        menuModal.style.display = 'none';
+        modalName.value = ''; modalCal.value = ''; modalProt.value = '';
+    }
+
+    presetSelect.addEventListener('change', (e) => {
+        const idx = e.target.value;
+        if(idx !== "") {
+            calInput.value = presets[idx].cal;
+            protInput.value = presets[idx].prot;
+        }
+    });
+
+    btnDeletePreset.addEventListener('click', () => {
+        const idx = presetSelect.value;
+        if(idx !== "" && confirm("Delete this preset?")) {
+            presets.splice(idx, 1);
+            updatePresetDropdown();
+            calInput.value = ''; protInput.value = '';
+            saveData();
+            showToast("Menu deleted.");
+        }
+    });
+
+    btnLogWeight.addEventListener('click', () => {
+        const w = parseFloat(weightInput.value);
+        if(w > 0) {
+            const today = getTodayStr();
+            weightLogs = weightLogs.filter(l => l.date !== today);
+            weightLogs.push({ date: today, weight: w });
+            weightLogs.sort((a,b) => new Date(a.date) - new Date(b.date));
+            updateWeightDisplay();
+            weightInput.value = '';
+            saveData();
+            showToast("Weight logged successfully!");
+        }
+    });
+
     addBtn.addEventListener('click', () => {
-        const calValue = calculateExpression(calInput.value);
-        const protValue = calculateExpression(protInput.value);
-
-        // Input validation and update logic (ตรวจสอบความถูกต้องของ Input และ Logic การอัปเดต)
-        if (!isNaN(calValue) && !isNaN(protValue) && calValue >= 0 && protValue >= 0) {
-            currentCal += calValue;
-            currentProt += protValue;
-
-            updateDisplay();
-
-            calInput.value = '';
-            protInput.value = '';
+        const c = calculateExpression(calInput.value);
+        const p = calculateExpression(protInput.value);
+        
+        if((!isNaN(c) && c > 0) || (!isNaN(p) && p > 0)) {
+            todayLogs.push({ id: Date.now(), cal: c||0, prot: p||0 });
+            calInput.value = ''; protInput.value = '';
+            updateUI();
+            showToast("Entry added!");
+        } else {
+            showToast("Please enter valid numbers", "error");
         }
     });
 
-    // Reset Data button (ปุ่ม Reset Data)
-    resetBtn.addEventListener('click', () => {
-        if (confirm("Are you sure you want to reset all calorie and protein data? This action cannot be undone.")) {
-            resetAllData();
-        }
-    });
+    // --- History Page ---
+    function renderHistoryPage() {
+        todayLogsContainer.innerHTML = '';
+        [...todayLogs].reverse().forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            div.innerHTML = `<span><b>${log.cal}</b> kcal, <b>${log.prot}</b>g</span> <button class="delete-btn" onclick="deleteLog(${log.id})">Del</button>`;
+            todayLogsContainer.appendChild(div);
+        });
 
-    // History button (ปุ่ม History)
-    historyDetailedBtn.addEventListener('click', () => {
-        alert("Development in progress.");
-    });
-
-    // ==========================================================
-    // Theme Toggle Section (ส่วน Theme Toggle)
-    // ==========================================================
-    function applyTheme(theme){
-        const body = document.body;
-        if (theme === 'dark') {
-            body.classList.add('dark-mode');
-            themeToggleBtn.textContent = 'Light';
-        }else {
-        body.classList.remove('dark-mode');
-        themeToggleBtn.textContent = 'Dark';
+        const history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+        pastHistoryContainer.innerHTML = '';
+        
+        if (history.length === 0) {
+            pastHistoryContainer.innerHTML = '<p style="text-align: center; color: #888;">No past history found.</p>';
+            btnLoadMore.style.display = 'none';
+            return;
         }
-        updatePhaseButtons(); 
+
+        const visibleHistory = history.slice(0, historyVisibleCount);
+        
+        visibleHistory.forEach(day => {
+            let targetC = 2400; 
+            const targetP = 130;
+            if (day.phase === 'bulking') targetC = 2600;
+            else if (day.phase === 'cutting') targetC = 1900;
+            else if (day.phase === 'custom') targetC = day.totalCal;
+
+            const calDiff = day.totalCal - targetC;
+            let calDiffHtml = calDiff > 0 ? `<span class="stat-bad">+${calDiff}</span>` : (calDiff < 0 ? `<span class="stat-good">${calDiff}</span>` : `<span class="stat-neutral">0</span>`);
+            let protStatusHtml = day.totalProt >= targetP ? `<span class="stat-good">✔ Reach (+${day.totalProt - targetP})</span>` : `<span class="stat-bad">✘ Miss (${day.totalProt - targetP})</span>`;
+
+            const prettyDate = formatDate(day.date);
+
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div class="history-header">
+                    <span>${prettyDate}</span>
+                    <div>
+                        <button class="edit-btn" onclick="openEditHistoryModal('${day.date}', ${day.totalCal}, ${day.totalProt})">✎</button>
+                        <button class="delete-btn" onclick="deleteHistory('${day.date}')">🗑</button>
+                    </div>
+                </div>
+                <div class="history-details" style="margin-top:5px; display:flex; justify-content:space-between; font-weight:bold;">
+                    <span>${day.totalCal} kcal</span>
+                    <span>${day.totalProt} g Protein</span>
+                </div>
+                <div class="history-details" style="font-size:0.85em; margin-top:5px;"><span>Diff: ${calDiffHtml} kcal</span><span>Prot: ${protStatusHtml}</span></div>
+                <div style="font-size: 0.75em; color: #888; text-align: right; margin-top: 2px;">Mode: ${day.phase || 'Unknown'} (Target: ${targetC})</div>
+            `;
+            pastHistoryContainer.appendChild(div);
+        });
+
+        if (historyVisibleCount >= history.length) {
+            btnLoadMore.style.display = 'none';
+        } else {
+            btnLoadMore.style.display = 'block';
+        }
     }
-    function getStoredTheme() {
-        return localStorage.getItem('theme') || 'light';
-    }
-    themeToggleBtn.addEventListener('click', () => {
-        const curretTheme = getStoredTheme();
-        const newTheme = curretTheme === 'dark' ? 'light' : 'dark';
-        applyTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
+
+    btnLoadMore.addEventListener('click', () => {
+        historyVisibleCount += 7;
+        renderHistoryPage();
     });
+
+    window.deleteLog = function(id) {
+        todayLogs = todayLogs.filter(l => l.id !== id);
+        updateUI(); renderHistoryPage();
+        showToast("Log deleted.", "error");
+    };
+
+    window.deleteHistory = function(date) {
+        if(confirm(`Delete history for ${date}?`)) {
+            let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+            history = history.filter(h => h.date !== date);
+            localStorage.setItem('calTrackerHistory', JSON.stringify(history));
+            renderHistoryPage();
+            showToast("History deleted.", "error");
+        }
+    };
+
+    window.openEditHistoryModal = function(date, oldCal, oldProt) {
+        editingHistoryDate = date; 
+        editHistoryDateDisplay.textContent = `Editing Date: ${formatDate(date)}`;
+        editHistoryCal.value = oldCal;
+        editHistoryProt.value = oldProt;
+        editHistoryModal.style.display = 'flex';
+        editHistoryCal.focus();
+    };
+
+    btnCancelEditHistory.addEventListener('click', () => {
+        editHistoryModal.style.display = 'none';
+        editingHistoryDate = null;
+    });
+
+    btnSaveEditHistory.addEventListener('click', () => {
+        if (!editingHistoryDate) return;
+
+        const newCal = calculateExpression(editHistoryCal.value);
+        const newProt = calculateExpression(editHistoryProt.value);
+
+        if (!isNaN(newCal) && !isNaN(newProt)) {
+            let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+            const idx = history.findIndex(h => h.date === editingHistoryDate);
+            
+            if (idx !== -1) {
+                history[idx].totalCal = newCal;
+                history[idx].totalProt = newProt;
+                localStorage.setItem('calTrackerHistory', JSON.stringify(history));
+                
+                renderHistoryPage();
+                showToast("History updated successfully!");
+                editHistoryModal.style.display = 'none';
+                editingHistoryDate = null;
+            }
+        } else {
+            showToast("Invalid number format.", "error");
+        }
+    });
+
+    // Press Enter to Submit
+    function handleMainEnter(e) {
+        if (e.key === 'Enter') addBtn.click();
+    }
+    calInput.addEventListener('keypress', handleMainEnter);
+    protInput.addEventListener('keypress', handleMainEnter);
+
+    function handleModalEnter(e) {
+        if (e.key === 'Enter') modalBtnSaveEat.click();
+    }
+    document.getElementById('modal-name').addEventListener('keypress', handleModalEnter);
+    document.getElementById('modal-cal').addEventListener('keypress', handleModalEnter);
+    document.getElementById('modal-prot').addEventListener('keypress', handleModalEnter);
+
+    function handleEditEnter(e) {
+        if (e.key === 'Enter') document.getElementById('btn-save-edit-history').click();
+    }
+    document.getElementById('edit-history-cal').addEventListener('keypress', handleEditEnter);
+    document.getElementById('edit-history-prot').addEventListener('keypress', handleEditEnter);
+
+    function renderSummary() {
+        const history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+        const combined = [...history];
+        const totals = calculateTotals();
+        
+        if(totals.cal > 0 || totals.prot > 0) {
+            combined.unshift({ date: getTodayStr(), totalCal: totals.cal });
+        }
+        
+        combined.sort((a,b) => new Date(a.date) - new Date(b.date));
+        
+        const endIndex = combined.length - (currentWeekOffset * 7);
+        const startIndex = Math.max(0, endIndex - 7);
+        
+        if (combined.length === 0 || endIndex <= 0) {
+            weekRangeText.textContent = "No Data";
+            if(calorieChart) calorieChart.destroy();
+            if(weightChart) weightChart.destroy();
+            return;
+        }
+
+        const slice = combined.slice(startIndex, endIndex);
+        
+        if (slice.length > 0) {
+            weekRangeText.textContent = `${formatDate(slice[0].date)}  to  ${formatDate(slice[slice.length - 1].date)}`;
+        } else {
+            weekRangeText.textContent = "No Data in this range";
+        }
+
+        nextWeekBtn.disabled = (currentWeekOffset === 0);
+        prevWeekBtn.disabled = (startIndex === 0);
+
+        const labels = slice.map(x => {
+            const d = new Date(x.date);
+            return `${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
+        });
+        const dataCal = slice.map(x => x.totalCal);
+
+        let deficitSum = 0;
+        slice.forEach(x => { deficitSum += (TDEE_BASE - x.totalCal); });
+        const kg = deficitSum / 7700;
+        document.getElementById('fat-loss-val').textContent = `${kg > 0 ? '-' : '+'}${Math.abs(kg).toFixed(2)} kg`;
+
+        const isDark = document.body.classList.contains('dark-mode');
+        const textColor = isDark ? '#ecf0f1' : '#333';
+        const gridColor = isDark ? '#444' : '#ddd';
+
+        const ctxC = document.getElementById('weeklyChart').getContext('2d');
+        if(calorieChart) calorieChart.destroy();
+        calorieChart = new Chart(ctxC, {
+            type: document.querySelector('.chart-btn.active').dataset.type,
+            data: {
+                labels: labels,
+                datasets: [{ label: 'Calories', data: dataCal, backgroundColor: 'rgba(52, 152, 219, 0.6)', borderColor: 'rgba(52, 152, 219, 1)', borderWidth: 1 }]
+            },
+            options: { 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+                },
+                plugins: { legend: { labels: { color: textColor } } }
+            }
+        });
+
+        const ctxW = document.getElementById('weightChart').getContext('2d');
+        const relevantWeights = weightLogs.filter(w => {
+            if(slice.length === 0) return false;
+            const d = new Date(w.date);
+            return d >= new Date(slice[0].date) && d <= new Date(slice[slice.length-1].date);
+        });
+
+        if(weightChart) weightChart.destroy();
+        weightChart = new Chart(ctxW, {
+            type: 'line',
+            data: {
+                labels: relevantWeights.map(w => {
+                    const d = new Date(w.date);
+                    return `${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
+                }),
+                datasets: [{ label: 'Weight (kg)', data: relevantWeights.map(w => w.weight), borderColor: '#9b59b6', backgroundColor: 'rgba(155, 89, 182, 0.2)', tension: 0.3, fill: true }]
+            },
+            options: { 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor }, grid: { color: gridColor } }
+                },
+                plugins: { legend: { labels: { color: textColor } } }
+            }
+        });
+    }
+
+    btnExport.addEventListener('click', () => {
+        const exportObj = {
+            current: JSON.parse(localStorage.getItem('calTrackerUltimate') || '{}'),
+            history: JSON.parse(localStorage.getItem('calTrackerHistory') || '[]')
+        };
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+        const anchor = document.createElement('a');
+        anchor.setAttribute("href", dataStr);
+        anchor.setAttribute("download", "calorie_backup_" + getTodayStr() + ".json");
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        showToast("Data exported!");
+    });
+
+    btnImport.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if(imported.current) localStorage.setItem('calTrackerUltimate', JSON.stringify(imported.current));
+                if(imported.history) localStorage.setItem('calTrackerHistory', JSON.stringify(imported.history));
+                alert("Data Imported Successfully! Reloading...");
+                location.reload();
+            } catch(err) { showToast("Invalid File Format", "error"); }
+        };
+        reader.readAsText(file);
+    });
+
+    optionBulking.addEventListener('click', () => { targetCal=2600; targetProt=130; currentPhase='bulking'; updateUI(); showToast("Switched to Bulking"); });
+    optionCutting.addEventListener('click', () => { targetCal=1900; targetProt=130; currentPhase='cutting'; updateUI(); showToast("Switched to Cutting"); });
+
+    btnHistory.addEventListener('click', () => { 
+        mainPage.style.display='none'; 
+        summaryPage.style.display='none'; 
+        historyPage.style.display='block'; 
+        historyVisibleCount = 7; 
+        renderHistoryPage(); 
+    });
+    
+    btnSummary.addEventListener('click', () => { mainPage.style.display='none'; historyPage.style.display='none'; summaryPage.style.display='block'; renderSummary(); });
+    
+    [backBtn, backSumBtn].forEach(b => b.addEventListener('click', () => {
+        historyPage.style.display='none'; summaryPage.style.display='none'; mainPage.style.display='block';
+    }));
+
+    btnReset.addEventListener('click', () => {
+        if(confirm("Clear TODAY's data?")) { todayLogs=[]; updateUI(); showToast("Today's data reset."); }
+    });
+    
+    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        if(summaryPage.style.display === 'block') renderSummary(); 
+    });
+
+    chartBtns.forEach(b => b.addEventListener('click', (e) => {
+        chartBtns.forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        renderSummary();
+    }));
+
+    prevWeekBtn.addEventListener('click', () => {
+        currentWeekOffset++;
+        renderSummary();
+    });
+
+    nextWeekBtn.addEventListener('click', () => {
+        if (currentWeekOffset > 0) {
+            currentWeekOffset--;
+            renderSummary();
+        }
+    });
+
+    loadData();
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('theme-toggle-btn').textContent = 'Light';
+    }
 });
