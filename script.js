@@ -32,10 +32,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const editHistoryDateDisplay = document.getElementById('edit-history-date-display');
     const editHistoryCal = document.getElementById('edit-history-cal');
     const editHistoryProt = document.getElementById('edit-history-prot');
+    const editHistoryTarget = document.getElementById('edit-history-target'); // New input
     const btnCancelEditHistory = document.getElementById('btn-cancel-edit-history');
     const btnSaveEditHistory = document.getElementById('btn-save-edit-history');
 
-    // TDEE Modal (New)
+    // TDEE Modal
     const tdeeModal = document.getElementById('tdee-modal');
     const tdeeGender = document.getElementById('tdee-gender');
     const tdeeWeight = document.getElementById('tdee-weight');
@@ -72,13 +73,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const weekRangeText = document.getElementById('week-range-text');
     const chartBtns = document.querySelectorAll('.chart-btn');
 
-    // State Variables
+    // ================= STATE VARIABLES =================
     let todayLogs = []; 
     let weightLogs = []; 
     let presets = [];    
+    
+    let tdeeBase = 2400; // Base TDEE before phase adjustment
     let targetCal = 2400;
     let targetProt = 130;
     let currentPhase = 'maintenance'; 
+    
     let currentWeekOffset = 0;
     let historyVisibleCount = 7; 
     let calorieChart = null;
@@ -123,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
             logs: todayLogs,
             weightLogs: weightLogs,
             presets: presets,
-            targetCal, targetProt, currentPhase
+            targetCal, targetProt, currentPhase, tdeeBase
         };
         localStorage.setItem('calTrackerUltimate', JSON.stringify(data));
     }
@@ -133,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const today = getTodayStr();
         if(raw) {
             const data = JSON.parse(raw);
+            // Handle new day
             if(data.date && data.date !== today) {
                 archiveData(data);
                 todayLogs = [];
@@ -141,6 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             weightLogs = data.weightLogs || [];
             presets = data.presets || [];
+            tdeeBase = data.tdeeBase || 2400;
             targetCal = data.targetCal || 2400;
             targetProt = data.targetProt || 130;
             currentPhase = data.currentPhase || 'maintenance';
@@ -156,15 +162,29 @@ document.addEventListener("DOMContentLoaded", () => {
         (oldData.logs||[]).forEach(l => { c+=l.cal; p+=l.prot; });
         
         if(c>0 || p>0) {
-            if(!history.find(h => h.date === oldData.date)) {
-                history.unshift({
-                    date: oldData.date,
-                    totalCal: c, totalProt: p,
-                    phase: oldData.currentPhase
-                });
-                if(history.length > 90) history = history.slice(0,90);
-                localStorage.setItem('calTrackerHistory', JSON.stringify(history));
+            // Check if entry already exists to avoid dupes on page refresh issues
+            const existingIdx = history.findIndex(h => h.date === oldData.date);
+            
+            const historyEntry = {
+                date: oldData.date,
+                totalCal: c, 
+                totalProt: p,
+                phase: oldData.currentPhase,
+                // Important: Store the Target used on that day
+                targetCal: oldData.targetCal || 2400,
+                targetProt: oldData.targetProt || 130
+            };
+
+            if(existingIdx !== -1) {
+                history[existingIdx] = historyEntry;
+            } else {
+                history.unshift(historyEntry);
             }
+            
+            // Limit history size if needed
+            if(history.length > 365) history = history.slice(0,365);
+            
+            localStorage.setItem('calTrackerHistory', JSON.stringify(history));
         }
     }
 
@@ -195,8 +215,15 @@ document.addEventListener("DOMContentLoaded", () => {
         targetDisplayCal.textContent = `Target Cal: ${targetCal}`;
         targetDisplayProt.textContent = `Target Prot: ${targetProt}g`;
 
-        optionBulking.style.borderColor = currentPhase === 'bulking' ? '#27ae60' : '';
-        optionCutting.style.borderColor = currentPhase === 'cutting' ? '#e74c3c' : '';
+        // Update Phase Button Texts based on TDEE Base
+        optionBulking.innerHTML = `Bulking (${tdeeBase + 400})`; // +400 Surplus
+        optionCutting.innerHTML = `Cutting (${tdeeBase - 500})`; // -500 Deficit
+
+        // Update Button Styles
+        optionBulking.style.borderColor = '';
+        optionCutting.style.borderColor = '';
+        if(currentPhase === 'bulking') optionBulking.style.borderColor = '#27ae60';
+        else if(currentPhase === 'cutting') optionCutting.style.borderColor = '#e74c3c';
 
         saveData();
     }
@@ -206,7 +233,9 @@ document.addEventListener("DOMContentLoaded", () => {
         todayWeightDisplay.textContent = todayEntry ? `Today's Logged Weight: ${todayEntry.weight} kg` : "";
     }
 
-    // ================= EVENT HANDLERS & LOGIC =================
+    // ================= EVENT HANDLERS =================
+    
+    // --- MANUAL EDIT TARGETS ---
     btnCustomTarget.addEventListener('click', () => {
         const newCal = prompt("Enter Custom Calorie Target:", targetCal);
         const newProt = prompt("Enter Custom Protein Target:", targetProt);
@@ -219,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- NEW: TDEE MODAL LOGIC ---
+    // --- TDEE CALCULATOR ---
     btnCalcTDEE.addEventListener('click', () => {
         tdeeModal.style.display = 'flex';
     });
@@ -246,7 +275,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const tdee = Math.round(bmr * activity);
 
-        targetCal = tdee;
+        tdeeBase = tdee; // Update Base TDEE
+        targetCal = tdee; // Set current target to Maintenance
         targetProt = Math.round(weight * 2); // Auto protein: ~2g per kg
         currentPhase = 'maintenance';
         
@@ -255,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tdeeModal.style.display = 'none';
     });
 
-    // --- MODAL & PRESETS ---
+    // --- ADD MENU MODAL ---
     function updatePresetDropdown() {
         presetSelect.innerHTML = '<option value="">-- Select Food --</option>';
         presets.forEach((p, idx) => {
@@ -326,6 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- WEIGHT LOGGING ---
     btnLogWeight.addEventListener('click', () => {
         const w = parseFloat(weightInput.value);
         if(w > 0) {
@@ -340,6 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- ADD BUTTON ---
     addBtn.addEventListener('click', () => {
         const c = calculateExpression(calInput.value);
         const p = calculateExpression(protInput.value);
@@ -354,7 +386,56 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- History Page ---
+    // --- EDIT HISTORY MODAL LOGIC ---
+    window.openEditHistoryModal = function(date, oldCal, oldProt, oldTarget) {
+        editingHistoryDate = date; 
+        editHistoryDateDisplay.textContent = `Editing Date: ${formatDate(date)}`;
+        editHistoryCal.value = oldCal;
+        editHistoryProt.value = oldProt;
+        
+        // Find target from history or use TDEE base fallback
+        let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+        const entry = history.find(h => h.date === date);
+        const currentTarget = entry && entry.targetCal ? entry.targetCal : 2400;
+        editHistoryTarget.value = currentTarget;
+
+        editHistoryModal.style.display = 'flex';
+        editHistoryCal.focus();
+    };
+
+    btnCancelEditHistory.addEventListener('click', () => {
+        editHistoryModal.style.display = 'none';
+        editingHistoryDate = null;
+    });
+
+    btnSaveEditHistory.addEventListener('click', () => {
+        if (!editingHistoryDate) return;
+
+        const newCal = calculateExpression(editHistoryCal.value);
+        const newProt = calculateExpression(editHistoryProt.value);
+        const newTarget = calculateExpression(editHistoryTarget.value);
+
+        if (!isNaN(newCal) && !isNaN(newProt) && !isNaN(newTarget)) {
+            let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
+            const idx = history.findIndex(h => h.date === editingHistoryDate);
+            
+            if (idx !== -1) {
+                history[idx].totalCal = newCal;
+                history[idx].totalProt = newProt;
+                history[idx].targetCal = newTarget; // Update stored target
+                localStorage.setItem('calTrackerHistory', JSON.stringify(history));
+                
+                renderHistoryPage();
+                showToast("History updated successfully!");
+                editHistoryModal.style.display = 'none';
+                editingHistoryDate = null;
+            }
+        } else {
+            showToast("Invalid number format.", "error");
+        }
+    });
+
+    // --- RENDER HISTORY PAGE ---
     function renderHistoryPage() {
         todayLogsContainer.innerHTML = '';
         [...todayLogs].reverse().forEach(log => {
@@ -376,11 +457,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const visibleHistory = history.slice(0, historyVisibleCount);
         
         visibleHistory.forEach(day => {
-            let targetC = 2400; 
-            const targetP = 130;
-            if (day.phase === 'bulking') targetC = 2600;
-            else if (day.phase === 'cutting') targetC = 1900;
-            else if (day.phase === 'custom') targetC = day.totalCal;
+            // Retrieve stored target or default to 2400 if missing (old data)
+            let targetC = day.targetCal || 2400; 
+            const targetP = day.targetProt || 130;
 
             const calDiff = day.totalCal - targetC;
             let calDiffHtml = calDiff > 0 ? `<span class="stat-bad">+${calDiff}</span>` : (calDiff < 0 ? `<span class="stat-good">${calDiff}</span>` : `<span class="stat-neutral">0</span>`);
@@ -436,119 +515,84 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    window.openEditHistoryModal = function(date, oldCal, oldProt) {
-        editingHistoryDate = date; 
-        editHistoryDateDisplay.textContent = `Editing Date: ${formatDate(date)}`;
-        editHistoryCal.value = oldCal;
-        editHistoryProt.value = oldProt;
-        editHistoryModal.style.display = 'flex';
-        editHistoryCal.focus();
-    };
-
-    btnCancelEditHistory.addEventListener('click', () => {
-        editHistoryModal.style.display = 'none';
-        editingHistoryDate = null;
-    });
-
-    btnSaveEditHistory.addEventListener('click', () => {
-        if (!editingHistoryDate) return;
-
-        const newCal = calculateExpression(editHistoryCal.value);
-        const newProt = calculateExpression(editHistoryProt.value);
-
-        if (!isNaN(newCal) && !isNaN(newProt)) {
-            let history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
-            const idx = history.findIndex(h => h.date === editingHistoryDate);
-            
-            if (idx !== -1) {
-                history[idx].totalCal = newCal;
-                history[idx].totalProt = newProt;
-                localStorage.setItem('calTrackerHistory', JSON.stringify(history));
-                
-                renderHistoryPage();
-                showToast("History updated successfully!");
-                editHistoryModal.style.display = 'none';
-                editingHistoryDate = null;
-            }
-        } else {
-            showToast("Invalid number format.", "error");
-        }
-    });
-
-    // Press Enter to Submit
-    function handleMainEnter(e) {
-        if (e.key === 'Enter') addBtn.click();
-    }
-    calInput.addEventListener('keypress', handleMainEnter);
-    protInput.addEventListener('keypress', handleMainEnter);
-
-    function handleModalEnter(e) {
-        if (e.key === 'Enter') modalBtnSaveEat.click();
-    }
-    document.getElementById('modal-name').addEventListener('keypress', handleModalEnter);
-    document.getElementById('modal-cal').addEventListener('keypress', handleModalEnter);
-    document.getElementById('modal-prot').addEventListener('keypress', handleModalEnter);
-
-    function handleEditEnter(e) {
-        if (e.key === 'Enter') document.getElementById('btn-save-edit-history').click();
-    }
-    document.getElementById('edit-history-cal').addEventListener('keypress', handleEditEnter);
-    document.getElementById('edit-history-prot').addEventListener('keypress', handleEditEnter);
-
+    // --- RENDER SUMMARY PAGE (FIXED WEEKLY & WEIGHT) ---
     function renderSummary() {
         const history = JSON.parse(localStorage.getItem('calTrackerHistory')) || [];
-        const combined = [...history];
-        const totals = calculateTotals();
         
-        if(totals.cal > 0 || totals.prot > 0) {
-            combined.unshift({ date: getTodayStr(), totalCal: totals.cal });
-        }
+        // --- 1. GENERATE DATE RANGE (Fixed 7 Days) ---
+        const days = [];
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() - (currentWeekOffset * 7)); // Shift by weeks
         
-        combined.sort((a,b) => new Date(a.date) - new Date(b.date));
-        
-        const endIndex = combined.length - (currentWeekOffset * 7);
-        const startIndex = Math.max(0, endIndex - 7);
-        
-        if (combined.length === 0 || endIndex <= 0) {
-            weekRangeText.textContent = "No Data";
-            if(calorieChart) calorieChart.destroy();
-            if(weightChart) weightChart.destroy();
-            return;
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(endDate);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+            days.push(dateStr);
         }
 
-        const slice = combined.slice(startIndex, endIndex);
-        
-        if (slice.length > 0) {
-            weekRangeText.textContent = `${formatDate(slice[0].date)}  to  ${formatDate(slice[slice.length - 1].date)}`;
-        } else {
-            weekRangeText.textContent = "No Data in this range";
-        }
-
-        nextWeekBtn.disabled = (currentWeekOffset === 0);
-        prevWeekBtn.disabled = (startIndex === 0);
-
-        const labels = slice.map(x => {
-            const d = new Date(x.date);
-            return `${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
-        });
-        const dataCal = slice.map(x => x.totalCal);
-
+        // --- 2. MAP DATA TO DATES ---
+        const labels = [];
+        const dataCal = [];
+        const dataWeight = [];
         let deficitSum = 0;
-        slice.forEach(x => { deficitSum += (TDEE_BASE - x.totalCal); });
+
+        // Check Today's data
+        const currentTotals = calculateTotals();
+        const todayStr = getTodayStr();
+
+        days.forEach(dateStr => {
+            // Label
+            const dateObj = new Date(dateStr);
+            labels.push(`${dateObj.getDate()} ${dateObj.toLocaleDateString('en-GB', { month: 'short' })}`);
+
+            // Calorie Data
+            let cal = 0;
+            if (dateStr === todayStr) {
+                cal = currentTotals.cal;
+            } else {
+                const h = history.find(item => item.date === dateStr);
+                if (h) cal = h.totalCal;
+            }
+            dataCal.push(cal);
+
+            // Weight Data
+            const w = weightLogs.find(item => item.date === dateStr);
+            dataWeight.push(w ? w.weight : null); // null allows Chart.js to span gaps
+
+            // Deficit Calculation (Only count days with logs)
+            if (cal > 0) {
+                deficitSum += (TDEE_BASE - cal);
+            }
+        });
+
+        // --- 3. UI UPDATES ---
+        weekRangeText.textContent = `${formatDate(days[0])}  to  ${formatDate(days[6])}`;
+        nextWeekBtn.disabled = (currentWeekOffset === 0);
+
         const kg = deficitSum / 7700;
         document.getElementById('fat-loss-val').textContent = `${kg > 0 ? '-' : '+'}${Math.abs(kg).toFixed(2)} kg`;
 
+        // Theme Check
         const isDark = document.body.classList.contains('dark-mode');
         const textColor = isDark ? '#ecf0f1' : '#333';
         const gridColor = isDark ? '#444' : '#ddd';
 
+        // --- 4. RENDER CHARTS ---
         const ctxC = document.getElementById('weeklyChart').getContext('2d');
         if(calorieChart) calorieChart.destroy();
+        
         calorieChart = new Chart(ctxC, {
             type: document.querySelector('.chart-btn.active').dataset.type,
             data: {
                 labels: labels,
-                datasets: [{ label: 'Calories', data: dataCal, backgroundColor: 'rgba(52, 152, 219, 0.6)', borderColor: 'rgba(52, 152, 219, 1)', borderWidth: 1 }]
+                datasets: [{ 
+                    label: 'Calories', 
+                    data: dataCal, 
+                    backgroundColor: 'rgba(52, 152, 219, 0.6)', 
+                    borderColor: 'rgba(52, 152, 219, 1)', 
+                    borderWidth: 1 
+                }]
             },
             options: { 
                 maintainAspectRatio: false,
@@ -561,21 +605,21 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const ctxW = document.getElementById('weightChart').getContext('2d');
-        const relevantWeights = weightLogs.filter(w => {
-            if(slice.length === 0) return false;
-            const d = new Date(w.date);
-            return d >= new Date(slice[0].date) && d <= new Date(slice[slice.length-1].date);
-        });
-
         if(weightChart) weightChart.destroy();
+        
         weightChart = new Chart(ctxW, {
             type: 'line',
             data: {
-                labels: relevantWeights.map(w => {
-                    const d = new Date(w.date);
-                    return `${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
-                }),
-                datasets: [{ label: 'Weight (kg)', data: relevantWeights.map(w => w.weight), borderColor: '#9b59b6', backgroundColor: 'rgba(155, 89, 182, 0.2)', tension: 0.3, fill: true }]
+                labels: labels,
+                datasets: [{ 
+                    label: 'Weight (kg)', 
+                    data: dataWeight, 
+                    borderColor: '#9b59b6', 
+                    backgroundColor: 'rgba(155, 89, 182, 0.2)', 
+                    tension: 0.3, 
+                    fill: true,
+                    spanGaps: true // Connect points even if some days are missing
+                }]
             },
             options: { 
                 maintainAspectRatio: false,
@@ -588,6 +632,80 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // --- OTHER EVENT LISTENERS ---
+    
+    // Dynamic Bulking/Cutting
+    optionBulking.addEventListener('click', () => { 
+        targetCal = tdeeBase + 400; 
+        currentPhase = 'bulking'; 
+        updateUI(); 
+        showToast(`Switched to Bulking (${targetCal} kcal)`); 
+    });
+    
+    optionCutting.addEventListener('click', () => { 
+        targetCal = tdeeBase - 500; 
+        currentPhase = 'cutting'; 
+        updateUI(); 
+        showToast(`Switched to Cutting (${targetCal} kcal)`); 
+    });
+
+    btnHistory.addEventListener('click', () => { 
+        mainPage.style.display='none'; 
+        summaryPage.style.display='none'; 
+        historyPage.style.display='block'; 
+        historyVisibleCount = 7; 
+        renderHistoryPage(); 
+    });
+    
+    btnSummary.addEventListener('click', () => { mainPage.style.display='none'; historyPage.style.display='none'; summaryPage.style.display='block'; renderSummary(); });
+    
+    [backBtn, backSumBtn].forEach(b => b.addEventListener('click', () => {
+        historyPage.style.display='none'; summaryPage.style.display='none'; mainPage.style.display='block';
+    }));
+
+    btnReset.addEventListener('click', () => {
+        if(confirm("Clear TODAY's data?")) { todayLogs=[]; updateUI(); showToast("Today's data reset."); }
+    });
+    
+    // Theme Toggle Fixed
+    document.getElementById('theme-toggle-btn').addEventListener('click', function() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        this.textContent = isDark ? 'Light' : 'Dark'; // Update Button Text
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        if(summaryPage.style.display === 'block') renderSummary(); 
+    });
+
+    // Press Enter to Submit
+    function handleMainEnter(e) { if (e.key === 'Enter') addBtn.click(); }
+    calInput.addEventListener('keypress', handleMainEnter);
+    protInput.addEventListener('keypress', handleMainEnter);
+
+    function handleModalEnter(e) { if (e.key === 'Enter') modalBtnSaveEat.click(); }
+    document.getElementById('modal-name').addEventListener('keypress', handleModalEnter);
+    document.getElementById('modal-cal').addEventListener('keypress', handleModalEnter);
+    document.getElementById('modal-prot').addEventListener('keypress', handleModalEnter);
+
+    // Chart Switcher
+    chartBtns.forEach(b => b.addEventListener('click', (e) => {
+        chartBtns.forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        renderSummary();
+    }));
+
+    prevWeekBtn.addEventListener('click', () => {
+        currentWeekOffset++;
+        renderSummary();
+    });
+
+    nextWeekBtn.addEventListener('click', () => {
+        if (currentWeekOffset > 0) {
+            currentWeekOffset--;
+            renderSummary();
+        }
+    });
+
+    // Data Export/Import
     btnExport.addEventListener('click', () => {
         const exportObj = {
             current: JSON.parse(localStorage.getItem('calTrackerUltimate') || '{}'),
@@ -620,51 +738,7 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsText(file);
     });
 
-    optionBulking.addEventListener('click', () => { targetCal=2600; targetProt=130; currentPhase='bulking'; updateUI(); showToast("Switched to Bulking"); });
-    optionCutting.addEventListener('click', () => { targetCal=1900; targetProt=130; currentPhase='cutting'; updateUI(); showToast("Switched to Cutting"); });
-
-    btnHistory.addEventListener('click', () => { 
-        mainPage.style.display='none'; 
-        summaryPage.style.display='none'; 
-        historyPage.style.display='block'; 
-        historyVisibleCount = 7; 
-        renderHistoryPage(); 
-    });
-    
-    btnSummary.addEventListener('click', () => { mainPage.style.display='none'; historyPage.style.display='none'; summaryPage.style.display='block'; renderSummary(); });
-    
-    [backBtn, backSumBtn].forEach(b => b.addEventListener('click', () => {
-        historyPage.style.display='none'; summaryPage.style.display='none'; mainPage.style.display='block';
-    }));
-
-    btnReset.addEventListener('click', () => {
-        if(confirm("Clear TODAY's data?")) { todayLogs=[]; updateUI(); showToast("Today's data reset."); }
-    });
-    
-    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-        document.body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-        if(summaryPage.style.display === 'block') renderSummary(); 
-    });
-
-    chartBtns.forEach(b => b.addEventListener('click', (e) => {
-        chartBtns.forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        renderSummary();
-    }));
-
-    prevWeekBtn.addEventListener('click', () => {
-        currentWeekOffset++;
-        renderSummary();
-    });
-
-    nextWeekBtn.addEventListener('click', () => {
-        if (currentWeekOffset > 0) {
-            currentWeekOffset--;
-            renderSummary();
-        }
-    });
-
+    // Init
     loadData();
     if (localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-mode');

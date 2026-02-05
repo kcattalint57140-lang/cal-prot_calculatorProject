@@ -44,6 +44,10 @@
             <p id="edit-history-date-display" style="margin-bottom: 15px; color: #666; font-size: 0.9em; text-align: center;">Date: ...</p>
             
             <div class="input-group">
+                <label>Target Cal</label>
+                <input id="edit-history-target" type="number" placeholder="Target used that day">
+            </div>
+            <div class="input-group">
                 <label>Total Cal</label>
                 <input id="edit-history-cal" type="number">
             </div>
@@ -109,7 +113,7 @@
                     <p id="target-display-prot">Target Prot: 130g</p>
                 </div>
                 <div style="display: flex; gap: 5px;">
-                    <button id="btn-calc-tdee" style="font-size: 0.8em; background-color: #8e44ad; color: white; border: none;">Calc TDEE</button>
+                    <button id="btn-calc-tdee" style="font-size: 0.8em; background-color: #8e44ad; color: white; border: none; cursor: pointer; padding: 5px 10px; border-radius: 4px;">Calc TDEE</button>
                     <button id="btn-custom-target" style="font-size: 0.8em;">Edit Targets</button>
                 </div>
             </div>
@@ -174,8 +178,8 @@
                 </details>
 
                 <div class="container-btn" style="margin-top: 20px;">
-                     <button id="option-bulking" class="theme-btn">Bulking (2600)</button>
-                     <button id="option-cutting" class="theme-btn">Cutting (1900)</button>
+                     <button id="option-bulking" class="theme-btn">Bulking (+400)</button>
+                     <button id="option-cutting" class="theme-btn">Cutting (-500)</button>
                 </div>
             </div>
         </div>
